@@ -93,7 +93,10 @@ def process_trial_input():
     if st.session_state.get(input_key):
         user_input = st.session_state[input_key]
         # Process when user enters any input
-        if user_input:
+        if user_input and not st.session_state.get(f'processed_{st.session_state.trials}', False):
+            # Mark this trial as processed
+            st.session_state[f'processed_{st.session_state.trials}'] = True
+
             end_time = time.time()
             # Calculate reaction time in milliseconds with high precision
             reaction_time_ms = (end_time - st.session_state.start_time) * 1000
@@ -119,12 +122,10 @@ def process_trial_input():
 
             # If we've reached the trial limit, show completion message
             if st.session_state.trials >= 30:
-                st.balloons()
                 st.session_state.experiment_complete = True
             else:
-                # Trigger a rerun to show the next number
-                st.session_state.last_key = True
-                st.rerun()
+                # Set flag to trigger rerun outside callback
+                st.session_state.needs_rerun = True
 
 def main():
     st.title("Number Recognition Experiment")
@@ -179,6 +180,11 @@ def main():
         max_chars=1,
         on_change=lambda: process_trial_input()
     )
+
+    # Check if we need to rerun (after callback completes)
+    if st.session_state.get('needs_rerun', False):
+        st.session_state.needs_rerun = False
+        st.rerun()
 
     # Check if experiment is complete
     if st.session_state.get('experiment_complete'):
