@@ -20,18 +20,28 @@ if 'trials' not in st.session_state:
     st.session_state.user_data = []
     st.session_state.user_info = None
 
-def get_random_number_and_color():
-    # Ensure we don't get the same number consecutively
-    while True:
-        number = random.randint(0, 9)
-        if number != st.session_state.current_number:
-            break
-    
-    # Choose a random color
+def generate_trial_sequence():
+    """Generate a balanced sequence of 30 trials: 10 per color, each digit appears 3 times"""
     colors = ['red', 'green', 'blue']
-    color = random.choice(colors)
-    
-    return number, color
+    trials = []
+
+    # Create 3 sets of all digits (0-9), one for each color
+    for color in colors:
+        for digit in range(10):
+            trials.append((digit, color))
+
+    # Shuffle to randomize order
+    random.shuffle(trials)
+    return trials
+
+def get_next_trial():
+    """Get the next trial from the pre-generated sequence"""
+    if 'trial_sequence' not in st.session_state or not st.session_state.trial_sequence:
+        st.session_state.trial_sequence = generate_trial_sequence()
+
+    if st.session_state.trials < len(st.session_state.trial_sequence):
+        return st.session_state.trial_sequence[st.session_state.trials]
+    return None, None
 
 def save_to_google_sheets(data):
     """Save data to Google Sheets"""
@@ -124,7 +134,8 @@ def process_trial_input():
             if st.session_state.trials >= 30:
                 st.session_state.experiment_complete = True
             else:
-                # Set flag to trigger rerun outside callback
+                # Set flags to trigger rerun and display new trial
+                st.session_state.new_trial = True
                 st.session_state.needs_rerun = True
 
 def main():
@@ -153,17 +164,18 @@ def main():
     
     # Display current trial info
     st.write(f"Trial {st.session_state.trials + 1} of 30")
-    
-    # Generate new number and color if this is the first trial or after a key press
-    if st.session_state.current_number is None or 'last_key' in st.session_state:
-        st.session_state.current_number, st.session_state.current_color = get_random_number_and_color()
+
+    # Generate new number and color for current trial
+    st.session_state.current_number, st.session_state.current_color = get_next_trial()
+
+    # Set start time when displaying new number
+    if 'trial_start_time' not in st.session_state or st.session_state.get('new_trial', True):
         st.session_state.start_time = time.time()
-        if 'last_key' in st.session_state:
-            del st.session_state.last_key
-    
-    # Display the number with the selected color
+        st.session_state.new_trial = False
+
+    # Display the number with the selected color (larger font)
     st.markdown(
-        f'<h1 style="color:{st.session_state.current_color};text-align:center;font-size:100px;">'
+        f'<h1 style="color:{st.session_state.current_color};text-align:center;font-size:200px;font-weight:bold;margin:50px 0;">'
         f'{st.session_state.current_number}'
         '</h1>',
         unsafe_allow_html=True
