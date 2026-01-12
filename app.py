@@ -168,6 +168,26 @@ def main():
                             bubbles: true
                         });
                         this.dispatchEvent(event);
+
+                        // Refocus after a brief delay to ensure the input is ready for next trial
+                        setTimeout(() => {
+                            const newInputs = parent.querySelectorAll('input[type="text"]');
+                            if (newInputs.length > 0) {
+                                newInputs[newInputs.length - 1].focus();
+                            }
+                        }, 100);
+                    }
+                });
+
+                // Also refocus when Enter is pressed
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        setTimeout(() => {
+                            const newInputs = parent.querySelectorAll('input[type="text"]');
+                            if (newInputs.length > 0) {
+                                newInputs[newInputs.length - 1].focus();
+                            }
+                        }, 100);
                     }
                 });
             }
@@ -176,6 +196,8 @@ def main():
         setTimeout(setupCapture, 50);
         setTimeout(setupCapture, 150);
         setTimeout(setupCapture, 300);
+        setTimeout(setupCapture, 500);
+        setTimeout(setupCapture, 800);
         </script>
         """, height=0)
 
