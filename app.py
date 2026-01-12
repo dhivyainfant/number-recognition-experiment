@@ -97,47 +97,6 @@ def save_to_csv(data):
     else:
         df.to_csv(csv_file, mode='a', header=False, index=False)
 
-def process_trial_input():
-    """Process the user's input for the current trial"""
-    input_key = f"input_{st.session_state.trials}"
-    if st.session_state.get(input_key):
-        user_input = st.session_state[input_key]
-        # Process when user enters any input
-        if user_input and not st.session_state.get(f'processed_{st.session_state.trials}', False):
-            # Mark this trial as processed
-            st.session_state[f'processed_{st.session_state.trials}'] = True
-
-            end_time = time.time()
-            # Calculate reaction time in milliseconds with high precision
-            reaction_time_ms = (end_time - st.session_state.start_time) * 1000
-
-            # Record the data
-            trial_data = {
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
-                'name': st.session_state.user_info['name'],
-                'age': st.session_state.user_info['age'],
-                'displayed_number': st.session_state.current_number,
-                'displayed_color': st.session_state.current_color,
-                'user_input': user_input,
-                'is_correct': user_input == str(st.session_state.current_number),
-                'reaction_time_ms': round(reaction_time_ms, 2)
-            }
-
-            # Save to session state and Google Sheets
-            st.session_state.user_data.append(trial_data)
-            save_to_google_sheets(trial_data)
-
-            # Update trial counter
-            st.session_state.trials += 1
-
-            # If we've reached the trial limit, show completion message
-            if st.session_state.trials >= 30:
-                st.session_state.experiment_complete = True
-            else:
-                # Set flags to trigger rerun and display new trial
-                st.session_state.new_trial = True
-                st.session_state.needs_rerun = True
-
 def main():
     st.title("Number Recognition Experiment")
     
@@ -182,55 +141,80 @@ def main():
     )
     
     # Instructions
-    st.write("Just type the number - it will advance automatically!")
+    st.write("Just type the number you see!")
 
-    # Auto-focus and auto-submit script
-    components.html("""
-    <script>
-    const parent = window.parent.document;
+    # Check if input was already captured for this trial
+    if not st.session_state.get(f'processed_{st.session_state.trials}', False):
+        # Keystroke capture component
+        result = components.html(f"""
+        <div style="width: 100%; height: 80px; text-align: center; font-size: 20px; padding: 20px;">
+            <div id="feedback" style="color: #666;">Waiting for input...</div>
+        </div>
 
-    const focusAndSetupInput = () => {
-        const inputs = parent.querySelectorAll('input[type="text"]');
-        if (inputs.length > 0) {
-            const input = inputs[inputs.length - 1];
-            input.focus();
+        <script>
+        let captured = false;
+        const parent = window.parent;
 
-            // Auto-submit when user types a character
-            input.addEventListener('input', function(e) {
-                if (this.value.length === 1) {
-                    // Simulate pressing Enter
-                    const enterEvent = new KeyboardEvent('keydown', {
-                        key: 'Enter',
-                        code: 'Enter',
-                        keyCode: 13,
-                        which: 13,
-                        bubbles: true
-                    });
-                    this.dispatchEvent(enterEvent);
-                }
-            });
-        }
-    };
+        function captureKey(event) {{
+            // Only capture number keys 0-9
+            if (!captured && event.key >= '0' && event.key <= '9') {{
+                captured = true;
+                event.preventDefault();
 
-    setTimeout(focusAndSetupInput, 100);
-    setTimeout(focusAndSetupInput, 300);
-    setTimeout(focusAndSetupInput, 500);
-    </script>
-    """, height=0)
+                // Show feedback
+                document.getElementById('feedback').textContent = 'You pressed: ' + event.key;
+                document.getElementById('feedback').style.color = '#000';
+                document.getElementById('feedback').style.fontWeight = 'bold';
 
-    # Use regular text_input with on_change callback
-    user_input = st.text_input(
-        "Your answer:",
-        key=f"input_{st.session_state.trials}",
-        label_visibility="collapsed",
-        max_chars=1,
-        on_change=lambda: process_trial_input()
-    )
+                // Send the key to Streamlit
+                parent.postMessage({{
+                    type: 'streamlit:setComponentValue',
+                    value: event.key
+                }}, '*');
+            }}
+        }}
 
-    # Check if we need to rerun (after callback completes)
-    if st.session_state.get('needs_rerun', False):
-        st.session_state.needs_rerun = False
-        st.rerun()
+        // Capture at document level
+        document.addEventListener('keydown', captureKey);
+        parent.document.addEventListener('keydown', captureKey, true);
+
+        // Focus on the component to ensure it receives events
+        window.focus();
+        </script>
+        """, height=80)
+
+        # Process the captured keystroke
+        if result and result in '0123456789':
+            end_time = time.time()
+            reaction_time_ms = (end_time - st.session_state.start_time) * 1000
+
+            # Record the data
+            trial_data = {
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                'name': st.session_state.user_info['name'],
+                'age': st.session_state.user_info['age'],
+                'displayed_number': st.session_state.current_number,
+                'displayed_color': st.session_state.current_color,
+                'user_input': result,
+                'is_correct': result == str(st.session_state.current_number),
+                'reaction_time_ms': round(reaction_time_ms, 2)
+            }
+
+            # Mark as processed and save
+            st.session_state[f'processed_{st.session_state.trials}'] = True
+            st.session_state.user_data.append(trial_data)
+            save_to_google_sheets(trial_data)
+
+            # Update trial counter
+            st.session_state.trials += 1
+
+            # Check if experiment is complete
+            if st.session_state.trials >= 30:
+                st.session_state.experiment_complete = True
+            else:
+                st.session_state.new_trial = True
+                time.sleep(0.2)  # Brief pause to show feedback
+                st.rerun()
 
     # Check if experiment is complete
     if st.session_state.get('experiment_complete'):
