@@ -143,39 +143,45 @@ def main():
     if 'experiment_started' not in st.session_state:
         st.write("Press the spacebar to begin the experiment")
 
+        # Check if space was already pressed in session state
+        if 'space_key_pressed' not in st.session_state:
+            st.session_state.space_key_pressed = False
+
         # Use components.html to capture spacebar
-        space_pressed = components.html("""
-        <div style="width: 100%; height: 150px; text-align: center; padding: 40px;">
-            <div style="font-size: 24px; color: #666;">Press SPACEBAR to start</div>
-            <div id="status" style="margin-top: 20px; font-size: 18px; color: #000;"></div>
-        </div>
+        if not st.session_state.space_key_pressed:
+            space_pressed = components.html("""
+            <div style="width: 100%; height: 150px; text-align: center; padding: 40px;">
+                <div style="font-size: 24px; color: #666;">Press SPACEBAR to start</div>
+                <div id="status" style="margin-top: 20px; font-size: 18px; color: #000;"></div>
+            </div>
 
-        <script>
-        let pressed = false;
+            <script>
+            let pressed = false;
 
-        function captureSpace(event) {
-            if (!pressed && event.code === 'Space') {
-                pressed = true;
-                event.preventDefault();
-                document.getElementById('status').textContent = 'Starting...';
+            function captureSpace(event) {
+                if (!pressed && event.code === 'Space') {
+                    pressed = true;
+                    event.preventDefault();
+                    document.getElementById('status').textContent = 'Starting...';
 
-                // Send signal back to Streamlit
-                window.parent.postMessage({
-                    type: 'streamlit:setComponentValue',
-                    value: 'start'
-                }, '*');
+                    // Send signal back to Streamlit
+                    window.parent.postMessage({
+                        type: 'streamlit:setComponentValue',
+                        value: 'start'
+                    }, '*');
+                }
             }
-        }
 
-        // Capture at both levels
-        document.addEventListener('keydown', captureSpace);
-        window.parent.document.addEventListener('keydown', captureSpace, true);
-        </script>
-        """, height=150, key="space_capture")
+            // Capture at both levels
+            document.addEventListener('keydown', captureSpace);
+            window.parent.document.addEventListener('keydown', captureSpace, true);
+            </script>
+            """, height=150, key="space_capture")
 
-        if space_pressed == 'start':
-            st.session_state.experiment_started = True
-            st.rerun()
+            if space_pressed == 'start':
+                st.session_state.space_key_pressed = True
+                st.session_state.experiment_started = True
+                st.rerun()
         return
     
     # Display current trial info
