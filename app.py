@@ -184,69 +184,90 @@ def main():
     # Instructions
     st.write("Just type the number you see - no need to press Enter!")
 
-    # Use streamlit components to handle input
+    # Check if user has already input for this trial
+    input_key = f"digit_input_{st.session_state.trials}"
+
+    # Use streamlit components to capture keyboard input
     import streamlit.components.v1 as components
 
-    # JavaScript to capture keyboard input directly and auto-focus
-    components.html(f"""
+    # JavaScript-based input capture that auto-advances
+    result = components.html(f"""
+    <div id="input-capture" style="width: 100%; height: 100px; text-align: center; font-size: 24px; padding: 20px;">
+        <div id="instruction" style="color: #666;">Press any number key (0-9)</div>
+        <div id="captured" style="color: #000; font-weight: bold; margin-top: 10px;"></div>
+    </div>
+
     <script>
-    const parent = window.parent.document;
-    let inputFocused = false;
+    const parent = window.parent;
+    let captured = false;
 
-    // Function to find and focus the input
-    function focusInput() {{
-        const inputs = parent.querySelectorAll('input[type="text"]');
-        if (inputs.length > 0) {{
-            const lastInput = inputs[inputs.length - 1];
-            if (document.activeElement !== lastInput) {{
-                lastInput.focus();
-                inputFocused = true;
-            }}
-            return lastInput;
+    // Capture keyboard input
+    document.addEventListener('keydown', function(event) {{
+        if (!captured && event.key >= '0' && event.key <= '9') {{
+            captured = true;
+            document.getElementById('captured').textContent = 'You entered: ' + event.key;
+            document.getElementById('instruction').textContent = 'Recording...';
+
+            // Send the input back to Streamlit
+            parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: event.key
+            }}, '*');
         }}
-        return null;
-    }}
+    }});
 
-    // Auto-focus on load with multiple attempts
-    setTimeout(focusInput, 50);
-    setTimeout(focusInput, 100);
-    setTimeout(focusInput, 200);
-    setTimeout(focusInput, 400);
-    setTimeout(focusInput, 600);
+    parent.document.addEventListener('keydown', function(event) {{
+        if (!captured && event.key >= '0' && event.key <= '9') {{
+            captured = true;
+            document.getElementById('captured').textContent = 'You entered: ' + event.key;
+            document.getElementById('instruction').textContent = 'Recording...';
 
-    // Continuously try to focus if not focused
-    setInterval(() => {{
-        if (!inputFocused) {{
-            focusInput();
-        }}
-    }}, 100);
-
-    // Capture keyboard events at document level
-    parent.addEventListener('keydown', function(event) {{
-        // Only capture single digit keys
-        if (event.key >= '0' && event.key <= '9') {{
-            const input = focusInput();
-            if (input && input !== document.activeElement) {{
-                input.focus();
-            }}
-        }}
-    }}, true);
-
-    // Monitor when input loses focus
-    parent.addEventListener('blur', function(event) {{
-        if (event.target.tagName === 'INPUT') {{
-            inputFocused = false;
+            // Send the input back to Streamlit
+            parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: event.key
+            }}, '*');
         }}
     }}, true);
     </script>
-    """, height=0)
+    """, height=100, key=input_key)
 
-    user_input = st.text_input("Your answer:",
-                                 key=f"input_{st.session_state.trials}",
-                                 label_visibility="collapsed",
-                                 on_change=process_input,
-                                 max_chars=1,
-                                 value="")
+    # Process the captured input
+    if result and result not in [None, '']:
+        if input_key not in st.session_state:
+            st.session_state[input_key] = result
+
+            # Record the data immediately
+            end_time = time.time()
+            reaction_time = end_time - st.session_state.start_time
+
+            trial_data = {
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'name': st.session_state.user_info['name'],
+                'age': st.session_state.user_info['age'],
+                'displayed_number': st.session_state.current_number,
+                'displayed_color': st.session_state.current_color,
+                'user_input': result,
+                'is_correct': result == str(st.session_state.current_number),
+                'reaction_time_seconds': round(reaction_time, 3)
+            }
+
+            # Save to session state and Google Sheets
+            st.session_state.user_data.append(trial_data)
+            save_to_google_sheets(trial_data)
+
+            # Update trial counter
+            st.session_state.trials += 1
+
+            # If we've reached the trial limit, show completion message
+            if st.session_state.trials >= 30:
+                st.balloons()
+                st.session_state.experiment_complete = True
+            else:
+                # Trigger a rerun to show the next number
+                st.session_state.last_key = True
+                time.sleep(0.3)  # Brief pause to show the captured input
+                st.rerun()
 
     # Check if experiment is complete
     if st.session_state.get('experiment_complete'):
