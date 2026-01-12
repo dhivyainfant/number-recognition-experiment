@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 import os
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 # Create data directory if it doesn't exist
 os.makedirs('data', exist_ok=True)
@@ -41,8 +41,8 @@ def save_to_google_sheets(data):
             scope = ['https://spreadsheets.google.com/feeds',
                      'https://www.googleapis.com/auth/drive']
 
-            credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-                st.secrets["gcp_service_account"], scope)
+            credentials = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"], scopes=scope)
             client = gspread.authorize(credentials)
 
             # Open the Google Sheet (create it if it doesn't exist)
