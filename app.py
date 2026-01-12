@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import random
 import time
@@ -186,9 +187,6 @@ def main():
 
     # Check if user has already input for this trial
     input_key = f"digit_input_{st.session_state.trials}"
-
-    # Use streamlit components to capture keyboard input
-    import streamlit.components.v1 as components
 
     # JavaScript-based input capture that auto-advances
     result = components.html(f"""
