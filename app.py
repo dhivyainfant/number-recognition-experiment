@@ -147,7 +147,7 @@ def main():
         if 'space_key_pressed' not in st.session_state:
             st.session_state.space_key_pressed = False
 
-        # Use components.html to capture spacebar
+        # Use components.html to capture spacebar (no key parameter)
         if not st.session_state.space_key_pressed:
             space_pressed = components.html("""
             <div style="width: 100%; height: 150px; text-align: center; padding: 40px;">
@@ -176,7 +176,7 @@ def main():
             document.addEventListener('keydown', captureSpace);
             window.parent.document.addEventListener('keydown', captureSpace, true);
             </script>
-            """, height=150, key="space_capture")
+            """, height=150)
 
             if space_pressed == 'start':
                 st.session_state.space_key_pressed = True
@@ -248,7 +248,7 @@ def main():
         }}
     }}, true);
     </script>
-    """, height=100, key=input_key)
+    """, height=100)
 
     # Process the captured input
     if result and result not in [None, '']:
