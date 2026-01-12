@@ -87,25 +87,27 @@ def save_to_csv(data):
     else:
         df.to_csv(csv_file, mode='a', header=False, index=False)
 
-def process_input():
+def process_trial_input():
+    """Process the user's input for the current trial"""
     input_key = f"input_{st.session_state.trials}"
     if st.session_state.get(input_key):
         user_input = st.session_state[input_key]
-        # Process immediately when a single digit is entered
-        if user_input and len(user_input) == 1:
+        # Process when user enters any input
+        if user_input:
             end_time = time.time()
-            reaction_time = end_time - st.session_state.start_time
+            # Calculate reaction time in milliseconds with high precision
+            reaction_time_ms = (end_time - st.session_state.start_time) * 1000
 
             # Record the data
             trial_data = {
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
                 'name': st.session_state.user_info['name'],
                 'age': st.session_state.user_info['age'],
                 'displayed_number': st.session_state.current_number,
                 'displayed_color': st.session_state.current_color,
                 'user_input': user_input,
                 'is_correct': user_input == str(st.session_state.current_number),
-                'reaction_time_seconds': round(reaction_time, 3)
+                'reaction_time_ms': round(reaction_time_ms, 2)
             }
 
             # Save to session state and Google Sheets
@@ -167,89 +169,16 @@ def main():
     )
     
     # Instructions
-    st.write("Just type the number you see - no need to press Enter!")
+    st.write("Type the number you see and press Enter")
 
-    # Check if user has already input for this trial
-    input_key = f"digit_input_{st.session_state.trials}"
-
-    # JavaScript-based input capture that auto-advances
-    result = components.html(f"""
-    <div id="input-capture" style="width: 100%; height: 100px; text-align: center; font-size: 24px; padding: 20px;">
-        <div id="instruction" style="color: #666;">Press any number key (0-9)</div>
-        <div id="captured" style="color: #000; font-weight: bold; margin-top: 10px;"></div>
-    </div>
-
-    <script>
-    const parent = window.parent;
-    let captured = false;
-
-    // Capture keyboard input
-    document.addEventListener('keydown', function(event) {{
-        if (!captured && event.key >= '0' && event.key <= '9') {{
-            captured = true;
-            document.getElementById('captured').textContent = 'You entered: ' + event.key;
-            document.getElementById('instruction').textContent = 'Recording...';
-
-            // Send the input back to Streamlit
-            parent.postMessage({{
-                type: 'streamlit:setComponentValue',
-                value: event.key
-            }}, '*');
-        }}
-    }});
-
-    parent.document.addEventListener('keydown', function(event) {{
-        if (!captured && event.key >= '0' && event.key <= '9') {{
-            captured = true;
-            document.getElementById('captured').textContent = 'You entered: ' + event.key;
-            document.getElementById('instruction').textContent = 'Recording...';
-
-            // Send the input back to Streamlit
-            parent.postMessage({{
-                type: 'streamlit:setComponentValue',
-                value: event.key
-            }}, '*');
-        }}
-    }}, true);
-    </script>
-    """, height=100)
-
-    # Process the captured input
-    if result and result not in [None, '']:
-        if input_key not in st.session_state:
-            st.session_state[input_key] = result
-
-            # Record the data immediately
-            end_time = time.time()
-            reaction_time = end_time - st.session_state.start_time
-
-            trial_data = {
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'name': st.session_state.user_info['name'],
-                'age': st.session_state.user_info['age'],
-                'displayed_number': st.session_state.current_number,
-                'displayed_color': st.session_state.current_color,
-                'user_input': result,
-                'is_correct': result == str(st.session_state.current_number),
-                'reaction_time_seconds': round(reaction_time, 3)
-            }
-
-            # Save to session state and Google Sheets
-            st.session_state.user_data.append(trial_data)
-            save_to_google_sheets(trial_data)
-
-            # Update trial counter
-            st.session_state.trials += 1
-
-            # If we've reached the trial limit, show completion message
-            if st.session_state.trials >= 30:
-                st.balloons()
-                st.session_state.experiment_complete = True
-            else:
-                # Trigger a rerun to show the next number
-                st.session_state.last_key = True
-                time.sleep(0.3)  # Brief pause to show the captured input
-                st.rerun()
+    # Use regular text_input with on_change callback
+    user_input = st.text_input(
+        "Your answer:",
+        key=f"input_{st.session_state.trials}",
+        label_visibility="collapsed",
+        max_chars=1,
+        on_change=lambda: process_trial_input()
+    )
 
     # Check if experiment is complete
     if st.session_state.get('experiment_complete'):
