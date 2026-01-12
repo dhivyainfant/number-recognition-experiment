@@ -145,46 +145,50 @@ def main():
 
     # Check if input was already captured for this trial
     if not st.session_state.get(f'processed_{st.session_state.trials}', False):
-        # Keystroke capture component
-        result = components.html(f"""
-        <div style="width: 100%; height: 80px; text-align: center; font-size: 20px; padding: 20px;">
-            <div id="feedback" style="color: #666;">Waiting for input...</div>
-        </div>
-
+        # Use a hidden text input that's auto-focused for capturing keystrokes
+        components.html("""
         <script>
-        let captured = false;
-        const parent = window.parent;
+        // Auto-focus and monitor for single keypress
+        const parent = window.parent.document;
 
-        function captureKey(event) {{
-            // Only capture number keys 0-9
-            if (!captured && event.key >= '0' && event.key <= '9') {{
-                captured = true;
-                event.preventDefault();
+        const setupCapture = () => {
+            const inputs = parent.querySelectorAll('input[type="text"]');
+            if (inputs.length > 0) {
+                const input = inputs[inputs.length - 1];
+                input.focus();
 
-                // Show feedback
-                document.getElementById('feedback').textContent = 'You pressed: ' + event.key;
-                document.getElementById('feedback').style.color = '#000';
-                document.getElementById('feedback').style.fontWeight = 'bold';
+                // Listen for single character input
+                input.addEventListener('input', function(e) {
+                    if (this.value.length === 1 && this.value >= '0' && this.value <= '9') {
+                        // Auto-submit by pressing Enter
+                        const event = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            bubbles: true
+                        });
+                        this.dispatchEvent(event);
+                    }
+                });
+            }
+        };
 
-                // Send the key to Streamlit
-                parent.postMessage({{
-                    type: 'streamlit:setComponentValue',
-                    value: event.key
-                }}, '*');
-            }}
-        }}
-
-        // Capture at document level
-        document.addEventListener('keydown', captureKey);
-        parent.document.addEventListener('keydown', captureKey, true);
-
-        // Focus on the component to ensure it receives events
-        window.focus();
+        setTimeout(setupCapture, 50);
+        setTimeout(setupCapture, 150);
+        setTimeout(setupCapture, 300);
         </script>
-        """, height=80)
+        """, height=0)
 
-        # Process the captured keystroke
-        if result is not None and isinstance(result, str) and result in '0123456789':
+        # Hidden text input for capturing keystrokes
+        user_input = st.text_input(
+            "Type a number:",
+            key=f"trial_{st.session_state.trials}",
+            max_chars=1,
+            label_visibility="hidden"
+        )
+
+        # Process when input is received
+        if user_input and user_input in '0123456789':
             end_time = time.time()
             reaction_time_ms = (end_time - st.session_state.start_time) * 1000
 
@@ -195,8 +199,8 @@ def main():
                 'age': st.session_state.user_info['age'],
                 'displayed_number': st.session_state.current_number,
                 'displayed_color': st.session_state.current_color,
-                'user_input': result,
-                'is_correct': result == str(st.session_state.current_number),
+                'user_input': user_input,
+                'is_correct': user_input == str(st.session_state.current_number),
                 'reaction_time_ms': round(reaction_time_ms, 2)
             }
 
@@ -213,7 +217,6 @@ def main():
                 st.session_state.experiment_complete = True
             else:
                 st.session_state.new_trial = True
-                time.sleep(0.2)  # Brief pause to show feedback
                 st.rerun()
 
     # Check if experiment is complete
