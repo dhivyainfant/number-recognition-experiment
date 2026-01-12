@@ -184,7 +184,7 @@ def main():
         """, height=80)
 
         # Process the captured keystroke
-        if result and result in '0123456789':
+        if result is not None and isinstance(result, str) and result in '0123456789':
             end_time = time.time()
             reaction_time_ms = (end_time - st.session_state.start_time) * 1000
 
