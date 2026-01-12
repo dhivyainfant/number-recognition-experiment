@@ -170,7 +170,41 @@ def main():
     )
     
     # Instructions
-    st.write("Type the number you see and press Enter")
+    st.write("Just type the number - it will advance automatically!")
+
+    # Auto-focus and auto-submit script
+    components.html("""
+    <script>
+    const parent = window.parent.document;
+
+    const focusAndSetupInput = () => {
+        const inputs = parent.querySelectorAll('input[type="text"]');
+        if (inputs.length > 0) {
+            const input = inputs[inputs.length - 1];
+            input.focus();
+
+            // Auto-submit when user types a character
+            input.addEventListener('input', function(e) {
+                if (this.value.length === 1) {
+                    // Simulate pressing Enter
+                    const enterEvent = new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true
+                    });
+                    this.dispatchEvent(enterEvent);
+                }
+            });
+        }
+    };
+
+    setTimeout(focusAndSetupInput, 100);
+    setTimeout(focusAndSetupInput, 300);
+    setTimeout(focusAndSetupInput, 500);
+    </script>
+    """, height=0)
 
     # Use regular text_input with on_change callback
     user_input = st.text_input(
