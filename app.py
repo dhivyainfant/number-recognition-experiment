@@ -145,72 +145,70 @@ def main():
 
     # Check if input was already captured for this trial
     if not st.session_state.get(f'processed_{st.session_state.trials}', False):
-        # Use a hidden text input that's auto-focused for capturing keystrokes
-        components.html("""
-        <script>
-        // Auto-focus and monitor for single keypress
-        const parent = window.parent.document;
+        # Create a global keyboard listener that's always active
+        keystroke = components.html(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 20px;
+                    text-align: center;
+                    font-family: sans-serif;
+                }}
+                #message {{
+                    font-size: 18px;
+                    color: #666;
+                }}
+            </style>
+        </head>
+        <body>
+            <div id="message">Press any number key (0-9)</div>
 
-        const setupCapture = () => {
-            const inputs = parent.querySelectorAll('input[type="text"]');
-            if (inputs.length > 0) {
-                const input = inputs[inputs.length - 1];
-                input.focus();
+            <script>
+                let keyPressed = false;
+                const parent = window.parent;
 
-                // Listen for single character input
-                input.addEventListener('input', function(e) {
-                    if (this.value.length === 1 && this.value >= '0' && this.value <= '9') {
-                        // Auto-submit by pressing Enter
-                        const event = new KeyboardEvent('keydown', {
-                            key: 'Enter',
-                            code: 'Enter',
-                            keyCode: 13,
-                            bubbles: true
-                        });
-                        this.dispatchEvent(event);
+                function handleKeyPress(event) {{
+                    // Only process if we haven't captured a key yet
+                    if (!keyPressed && event.key >= '0' && event.key <= '9') {{
+                        keyPressed = true;
+                        event.preventDefault();
+                        event.stopPropagation();
 
-                        // Refocus after a brief delay to ensure the input is ready for next trial
-                        setTimeout(() => {
-                            const newInputs = parent.querySelectorAll('input[type="text"]');
-                            if (newInputs.length > 0) {
-                                newInputs[newInputs.length - 1].focus();
-                            }
-                        }, 100);
-                    }
-                });
+                        document.getElementById('message').textContent = 'Recording: ' + event.key;
+                        document.getElementById('message').style.color = '#000';
+                        document.getElementById('message').style.fontWeight = 'bold';
 
-                // Also refocus when Enter is pressed
-                input.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        setTimeout(() => {
-                            const newInputs = parent.querySelectorAll('input[type="text"]');
-                            if (newInputs.length > 0) {
-                                newInputs[newInputs.length - 1].focus();
-                            }
-                        }, 100);
-                    }
-                });
-            }
-        };
+                        // Send back to Streamlit
+                        window.parent.postMessage({{
+                            isStreamlitMessage: true,
+                            type: 'streamlit:setComponentValue',
+                            key: '{f"trial_{st.session_state.trials}"}',
+                            value: event.key
+                        }}, '*');
+                    }}
+                }}
 
-        setTimeout(setupCapture, 50);
-        setTimeout(setupCapture, 150);
-        setTimeout(setupCapture, 300);
-        setTimeout(setupCapture, 500);
-        setTimeout(setupCapture, 800);
-        </script>
-        """, height=0)
+                // Listen on document for all keypresses
+                document.addEventListener('keydown', handleKeyPress, true);
+                parent.document.addEventListener('keydown', handleKeyPress, true);
 
-        # Hidden text input for capturing keystrokes
-        user_input = st.text_input(
-            "Type a number:",
-            key=f"trial_{st.session_state.trials}",
-            max_chars=1,
-            label_visibility="hidden"
-        )
+                // Keep focus on the page
+                window.focus();
+                setInterval(() => {{
+                    if (!keyPressed) {{
+                        window.focus();
+                    }}
+                }}, 100);
+            </script>
+        </body>
+        </html>
+        """, height=60)
 
-        # Process when input is received
-        if user_input and user_input in '0123456789':
+        # Process when keystroke is received
+        if keystroke and isinstance(keystroke, str) and keystroke in '0123456789':
             end_time = time.time()
             reaction_time_ms = (end_time - st.session_state.start_time) * 1000
 
@@ -221,8 +219,8 @@ def main():
                 'age': st.session_state.user_info['age'],
                 'displayed_number': st.session_state.current_number,
                 'displayed_color': st.session_state.current_color,
-                'user_input': user_input,
-                'is_correct': user_input == str(st.session_state.current_number),
+                'user_input': keystroke,
+                'is_correct': keystroke == str(st.session_state.current_number),
                 'reaction_time_ms': round(reaction_time_ms, 2)
             }
 
