@@ -21,8 +21,8 @@ if 'trials' not in st.session_state:
     st.session_state.user_info = None
 
 def generate_trial_sequence():
-    """Generate a balanced sequence of 30 trials: 10 per color, each digit appears 3 times"""
-    colors = ['red', 'green', 'blue']
+    """Generate a balanced sequence of 60 trials: 10 per color, each digit appears 6 times"""
+    colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange']
     trials = []
 
     # Create 3 sets of all digits (0-9), one for each color
@@ -122,7 +122,7 @@ def main():
         return
     
     # Display current trial info
-    st.write(f"Trial {st.session_state.trials + 1} of 30")
+    st.write(f"Trial {st.session_state.trials + 1} of 60")
 
     # Generate new number and color for current trial
     st.session_state.current_number, st.session_state.current_color = get_next_trial()
@@ -227,7 +227,7 @@ def main():
             st.session_state.trials += 1
 
             # Check if experiment is complete
-            if st.session_state.trials >= 30:
+            if st.session_state.trials >= 60:
                 st.session_state.experiment_complete = True
             else:
                 st.session_state.new_trial = True
